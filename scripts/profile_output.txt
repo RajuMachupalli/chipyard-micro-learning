@@ -1,0 +1,23 @@
+MNIST Inference in C - Baseline Implementation
+============================================
+Loaded neural network weights successfully
+Loaded 100 test images successfully
+
+=== MNIST Inference Benchmark ===
+Processed 100 images in 0.098 seconds
+Average time per image: 0.98 ms
+Throughput: 1016.8 images/second
+Accuracy: 99/100 (99.0%)
+Operations per image: ~109,184 MAC operations
+Total operations: ~10 million MACs
+
+=== Single Image Test ===
+First test image: predicted=7, actual=7 ✓
+I$ Bytes Read:            352152868
+I$ Bytes Written:         0
+I$ Read Accesses:         107537396
+I$ Write Accesses:        0
+I$ Read Misses:           40173
+I$ Write Misses:          0
+I$ Writebacks:            0
+I$ Miss Rate:             0.037%

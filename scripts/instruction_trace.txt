@@ -1,0 +1,6 @@
+MNIST Inference in C - Baseline Implementation
+============================================
+Loaded neural network weights successfully
+Loaded 100 test images successfully
+
+=== MNIST Inference Benchmark ===
