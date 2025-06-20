@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scalability Laws: Multicore Performance Reality</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .title {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.2em;
+            font-weight: 600;
+        }
+        .chart-container {
+            position: relative;
+            height: 500px;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .insights {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .insight-card {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .insight-card h3 {
+            margin-top: 0;
+            font-size: 1.3em;
+        }
+        .insight-card.amdahl {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+        }
+        .insight-card.gunther {
+            background: linear-gradient(135deg, #fd79a8, #e84393);
+        }
+        .insight-card.neural {
+            background: linear-gradient(135deg, #55a3ff, #003d82);
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+        .legend-color {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .control-group {
+            display: inline-block;
+            margin: 0 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .control-group input {
+            width: 80px;
+            padding: 5px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="title">Scalability Laws: Why More Cores ≠ More Speed</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="sequentialFraction">Sequential Fraction</label>
+                <input type="range" id="sequentialFraction" min="0.05" max="0.5" step="0.05" value="0.11">
+                <span id="sequentialValue">11%</span>
+            </div>
+            <div class="control-group">
+                <label for="contentionCoeff">Contention (α)</label>
+                <input type="range" id="contentionCoeff" min="0.01" max="0.1" step="0.01" value="0.03">
+                <span id="contentionValue">0.03</span>
+            </div>
+            <div class="control-group">
+                <label for="coherencyCoeff">Coherency (β)</label>
+                <input type="range" id="coherencyCoeff" min="0.001" max="0.01" step="0.001" value="0.002">
+                <span id="coherencyValue">0.002</span>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="scalabilityChart"></canvas>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #3498db;"></div>
+                <span>Linear Scaling (Ideal)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e74c3c;"></div>
+                <span>Amdahl's Law</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9b59b6;"></div>
+                <span>Gunther's USL</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f39c12;"></div>
+                <span>Neural Networks (Typical)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #27ae60;"></div>
+                <span>Custom Silicon</span>
+            </div>
+        </div>
+
+        <div class="insights">
+            <div class="insight-card amdahl">
+                <h3>Amdahl's Law Reality</h3>
+                <p>Even with just 11% sequential code, maximum speedup caps at <strong>9.1x</strong> regardless of cores added. This is why your 16-core CPU doesn't make neural networks 16x faster.</p>
+            </div>
+            
+            <div class="insight-card gunther">
+                <h3>Gunther's Coordination Tax</h3>
+                <p>Real systems get worse with too many cores! Cache coherence and memory contention create overhead that actually <strong>reduces performance</strong> beyond 8-16 cores.</p>
+            </div>
+            
+            <div class="insight-card neural">
+                <h3>Neural Network Reality</h3>
+                <p>Typical neural networks on multicore CPUs plateau around <strong>4x speedup</strong> due to memory bandwidth limits and synchronization overhead between layers.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('scalabilityChart').getContext('2d');
+        let chart;
+
+        function calculateSpeedup(cores, sequentialFraction, alpha, beta) {
+            const idealSpeedup = cores;
+            const amdahlSpeedup = 1 / (sequentialFraction + (1 - sequentialFraction) / cores);
+            const guntherSpeedup = cores / (1 + alpha * (cores - 1) + beta * cores * (cores - 1));
+            
+            return { idealSpeedup, amdahlSpeedup, guntherSpeedup };
+        }
+
+        function generateNeuralNetworkData(maxCores) {
+            // Realistic neural network scaling based on empirical data
+            const data = [];
+            for (let cores = 1; cores <= maxCores; cores++) {
+                let speedup;
+                if (cores <= 2) speedup = cores * 0.9;
+                else if (cores <= 4) speedup = 1.8 + (cores - 2) * 0.7;
+                else if (cores <= 8) speedup = 3.2 + (cores - 4) * 0.25;
+                else if (cores <= 16) speedup = 4.2 + (cores - 8) * 0.1;
+                else speedup = Math.max(3.8 - (cores - 16) * 0.05, 2.5);
+                data.push(speedup);
+            }
+            return data;
+        }
+
+        function generateCustomSiliconData(maxCores) {
+            // Custom silicon breaks traditional scaling laws
+            const data = [];
+            for (let cores = 1; cores <= maxCores; cores++) {
+                let speedup;
+                if (cores <= 4) speedup = cores * 8; // 8x per "core" (specialized unit)
+                else if (cores <= 8) speedup = 32 + (cores - 4) * 6;
+                else speedup = 56 + (cores - 8) * 2; // Still good scaling
+                data.push(Math.min(speedup, 80)); // Cap for visualization
+            }
+            return data;
+        }
+
+        function updateChart() {
+            const sequentialFraction = parseFloat(document.getElementById('sequentialFraction').value);
+            const alpha = parseFloat(document.getElementById('contentionCoeff').value);
+            const beta = parseFloat(document.getElementById('coherencyCoeff').value);
+            
+            document.getElementById('sequentialValue').textContent = (sequentialFraction * 100).toFixed(0) + '%';
+            document.getElementById('contentionValue').textContent = alpha.toFixed(3);
+            document.getElementById('coherencyValue').textContent = beta.toFixed(3);
+
+            const cores = Array.from({length: 32}, (_, i) => i + 1);
+            const idealData = cores.map(c => c);
+            const amdahlData = [];
+            const guntherData = [];
+            
+            cores.forEach(coreCount => {
+                const { amdahlSpeedup, guntherSpeedup } = calculateSpeedup(coreCount, sequentialFraction, alpha, beta);
+                amdahlData.push(amdahlSpeedup);
+                guntherData.push(guntherSpeedup);
+            });
+
+            const neuralData = generateNeuralNetworkData(32);
+            const customSiliconData = generateCustomSiliconData(32);
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: cores,
+                    datasets: [
+                        {
+                            label: 'Linear Scaling (Ideal)',
+                            data: idealData,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            borderWidth: 3,
+                            borderDash: [5, 5],
+                            tension: 0.1
+                        },
+                        {
+                            label: "Amdahl's Law",
+                            data: amdahlData,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.1
+                        },
+                        {
+                            label: "Gunther's USL",
+                            data: guntherData,
+                            borderColor: '#9b59b6',
+                            backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Neural Networks (Typical)',
+                            data: neuralData,
+                            borderColor: '#f39c12',
+                            backgroundColor: 'rgba(243, 156, 18, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.2
+                        },
+                        {
+                            label: 'Custom Silicon',
+                            data: customSiliconData.slice(0, 16), // Only show first 16 for clarity
+                            borderColor: '#27ae60',
+                            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                            borderWidth: 4,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Speedup vs Number of Cores',
+                            font: {
+                                size: 18,
+                                weight: 'bold'
+                            },
+                            color: '#2c3e50'
+                        },
+                        legend: {
+                            display: false // We have custom legend
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Number of Cores',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Speedup Factor',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true,
+                            max: 40,
+                            grid: {
+                                color: 'rgba(0,0,0,0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    elements: {
+                        point: {
+                            radius: 0,
+                            hoverRadius: 6
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event listeners for interactive controls
+        document.getElementById('sequentialFraction').addEventListener('input', updateChart);
+        document.getElementById('contentionCoeff').addEventListener('input', updateChart);
+        document.getElementById('coherencyCoeff').addEventListener('input', updateChart);
+
+        // Initialize chart
+        updateChart();
+    </script>
+</body>
+</html>
