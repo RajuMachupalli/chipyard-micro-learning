@@ -106,3 +106,45 @@ Most time is spent downloading and compiling Chipyard components.
 
 
 ## Profiling tools  [Installation guide](/guides/Profiling_guide])
+
+
+## Extra thinks I worked to make it work on WSL2 Ubuntu
+Tep-4: Spike simulator
+After install, we need to add /opt/risc/bin to path: 
+echo 'export PATH=/opt/riscv/bin:$PATH' >> ~/.bashrc
+source ~/.bashrc
+
+Step - 5: Chipyared build
+at build step 1: Conda environment was missing
+cd ~
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+
+at build step 9
+sudo apt update
+sudo apt install -y libguestfs-tools
+
+While profiling MNIST interface, Proxy Kernal are not available (at spike /opt/riscv/riscv64-unknown-elf/bin/pk mnist_riscv)
+
+Rebuild RISC-V toolchain with Zifencei
+cd /opt
+git clone https://github.com/riscv/riscv-gnu-toolchain.git
+cd riscv-gnu-toolchain
+git checkout master  # optional, latest stable
+./configure --prefix=/opt/riscv --enable-multilib
+make -j$(nproc) linux
+
+3. Clean and rebuild riscv-pk
+
+Now rebuild Proxy Kernel:
+
+cd /opt/chipyard/riscv-tools/riscv-pk
+make clean
+mkdir build
+cd build
+../configure --prefix=/opt/riscv --host=riscv64-unknown-elf
+make -j$(nproc)
+make install
+
+
+
